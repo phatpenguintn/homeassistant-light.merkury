@@ -5,11 +5,11 @@ This has only been testeed with Merkury innovations 75 watt color lights. These 
 
 This allows you to take control of the lights locally once you have completed initial settup and a little work to get the correct key information. Be free from relying on the Tuya Cloud.
 
-It is based on the pytuya library [https://github.com/clach04/python-tuya] to control the lights. It includes references to all required libraries so they get installed directly by Home Assistant. Specifically it has been tested with hassio in docker on Ubuntu 18.
+It is based on the pytuya library https://github.com/clach04/python-tuya to control the lights. It includes references to all required libraries so they get installed directly by Home Assistant. Specifically it has been tested with hassio in docker on Ubuntu 18.
 
 To use cd to the Home Assistant config directory for your installation (wherever the configuration.yaml file lives) and `mkdir custom_components/light` and copy the merkury.py file into that `<haconfig>/custom_components/light` directory you just created.
 
-Next you will need to get the keys for your device. The best instructions are here: [https://github.com/codetheweb/tuyapi/blob/master/docs/SETUP.md] or here: [https://github.com/clach04/python-tuya/wiki/Setup]
+Next you will need to get the keys for your device. The best instructions are here: https://github.com/codetheweb/tuyapi/blob/master/docs/SETUP.md or here: https://github.com/clach04/python-tuya/wiki/Setup
 
 With that wonderful information from the tuyapi CLI or some other proxy, you are ready to update your configuration.yaml (but check your current one, and restart HA first) with an entry like this:
 
