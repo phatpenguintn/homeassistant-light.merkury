@@ -39,12 +39,13 @@ At least the Merkury bulbs come up with the hostname ESP_ffffff where ffffff is 
 
 Finally these bulbs only accept one connection at a time. which means that if you are connected with the Tuya App or with one of the other APIs they will reject your http request. Make sure you shut all those down before using this in HA
 
-TODO:
+### TODO:
 Better update functionality so that HA shows the right color.
+
 Clean up.
+
 Test other Tuya Bulbs and flush out functionality a bit more.
 
-Thanks to all those who contributed projects that influenced this one:
 ### Related Projects
   * https://github.com/clach04/python-tuya
   * https://github.com/sean6541/tuyaapi Python API to the web api
@@ -53,6 +54,7 @@ Thanks to all those who contributed projects that influenced this one:
   * https://github.com/SDNick484/rectec_status/ - RecTec pellet smokers control (with Alexa skill)
 
 ### Acknowledgements
+Thanks to all those who contributed projects that influenced this one:
 
   * Major breakthroughs on protocol work came from https://github.com/codetheweb/tuyapi from the reverse engineering time and skills of codetheweb and blackrozes, additional protocol reverse engineering from jepsonrob and clach04.
   * clach04 and all those that helped him pull together pytuya
