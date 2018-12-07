@@ -40,11 +40,10 @@ At least the Merkury bulbs come up with the hostname ESP_ffffff where ffffff is 
 Finally these bulbs only accept one connection at a time. which means that if you are connected with the Tuya App or with one of the other APIs they will reject your http request. Make sure you shut all those down before using this in HA
 
 ### TODO:
-Better update functionality so that HA shows the right color.
-
-Clean up.
-
-Test other Tuya Bulbs and flush out functionality a bit more.
+  *Better update functionality so that HA shows the right color.
+  *Clean up.
+  *Test other Tuya Bulbs and flush out functionality a bit more.
+  *Merge with tuya-homeassistant
 
 ### Related Projects
   * https://github.com/clach04/python-tuya
