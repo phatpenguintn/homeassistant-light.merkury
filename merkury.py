@@ -6,7 +6,7 @@ https://home-assistant.io/components/light.tuya/
 """
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS, ATTR_COLOR_TEMP, ATTR_RGB_COLOR, ATTR_HS_COLOR, ENTITY_ID_FORMAT,
-    SUPPORT_BRIGHTNESS, SUPPORT_COLOR, Light, PLATFORM_SCHEMA)
+    SUPPORT_BRIGHTNESS, SUPPORT_COLOR, SUPPORT_COLOR_TEMP, Light, PLATFORM_SCHEMA)
     
 import homeassistant.util.color as color_util
 
@@ -71,34 +71,6 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             device_id  
         )
       )
-    # bulb_device = TuyaCache(
-    #     pytuya.BulbDevice(
-    #         config.get(CONF_DEVICE_ID),
-    #         config.get(CONF_HOST),
-    #         config.get(CONF_LOCAL_KEY)
-    #     )
-    # )
-
-    # for object_id, device_config in devices.items():
-    #     lights.append(
-    #             TuyaDevice(
-    #                 bulb_device,
-    #                 device_config.get(CONF_NAME, object_id),
-    #                 device_config.get(CONF_ICON),
-    #                 device_config.get(CONF_ID)
-    #             )
-    #     )
-
-    # name = config.get(CONF_NAME)
-    # if name:
-    #     lights.append(
-    #             TuyaDevice(
-    #                 bulb_device,
-    #                 name,
-    #                 config.get(CONF_ICON),
-    #                 config.get(CONF_ID)
-    #             )
-    #     )
 
     add_devices(lights)
     
@@ -150,7 +122,23 @@ class TuyaDevice(Light):
         self._state = False
         self._icon = icon
         self._lightid = lightid
+        
+        self._brightness = None
+        self._color_temp = None
+        self._hs = None
+        self._rgb = None
+        self._mode = None
 
+    @property
+    def hs_color(self) -> tuple:
+        """Return the color property."""
+        return self._hs
+        
+    @property
+    def colorTemp(self):
+        """Get colorTemp of Tuya light."""
+        return self._colorTemp
+    
     @property
     def name(self):
         """Get name of Tuya light."""
@@ -176,35 +164,57 @@ class TuyaDevice(Light):
 
     def turn_on(self, **kwargs):
         """Turn Tuya light on."""
-        tries = 0
-        success = False
-        while (tries <=5 and success is False):
+        for i in range(5):
             try:
                 if (ATTR_BRIGHTNESS not in kwargs
                         and ATTR_RGB_COLOR not in kwargs
                         and ATTR_COLOR_TEMP not in kwargs):
                     self._device.set_status(True, self._lightid)
                 if ATTR_BRIGHTNESS in kwargs:
-                    self._device.set_brightness(kwargs[ATTR_BRIGHTNESS])
+                    self._brightness = kwargs[ATTR_BRIGHTNESS]
+                    self._device.set_brightness(self._brightness)
+                     
                 if ATTR_RGB_COLOR in kwargs:
                     rgb = kwargs[ATTR_RGB_COLOR]
                     r = rgb[0]
                     g = rgb[1]
                     b = rgb[2]
+                    self._rgb = (r,g,b)
                     self._device.set_colour(r,g,b)
                 if ATTR_HS_COLOR in kwargs:
-                    print(kwargs[ATTR_HS_COLOR])
                     h = kwargs[ATTR_HS_COLOR][0]
                     s = kwargs[ATTR_HS_COLOR][1]
-                    rgb = color_util.color_hs_to_RGB(h,s)
-                    r = rgb[0]
-                    g = rgb[1]
-                    b = rgb[2]
-                    self._device.set_colour(r,g,b)
+                    self._hs = (h,s)
+                    if (s <= 1):
+                        # this is a white bulb scenario
+                        # Merkury bulbs have Warm white LEDs, we need to light them up.
+                        #HA uses color temps between 153 and 500 we need 0-255
+                        if (self._brightness is None):
+                            self._brightness = self.brightness()
+                        self._colorTemp = 240
+                        #self._mode = 'white'
+                        # if we don't set the RGB then HA doesn't see it :-(
+                        rgb=(255,255,255)
+                        self._device.set_colour(rgb[0],rgb[1],rgb[2])
+                        self._device.set_white(self._brightness, self._colorTemp)
+                    else:    
+                        rgb = color_util.color_hs_to_RGB(h,s)
+                        r = rgb[0]
+                        g = rgb[1]
+                        b = rgb[2]
+                        self._device.set_colour(r,g,b)
+                if ATTR_COLOR_TEMP in kwargs:
+                    #white color temp
+                    #HA uses color temps between 153 and 500 we need 0-255
+                    self._colorTemp = max(int((kwargs[ATTR_COLOR_TEMP] - 155)/1.35),0)
+                    self._device.set_white(self.brightness(),self.colorTemp())
                 self._device.set_status(True, self._lightid)
-                success = True
-            except ConnectionResetError:
-                sleep(.1) #before trying again sleep .1 sec
+                break
+            except (ConnectionError, ConnectionResetError) as e:
+                if i+1 == 5:
+                    raise ConnectionError("Failed to update status.")
+                sleep(.2)
+                
 
     def turn_off(self, **kwargs):
         """Turn Tuya light off."""
@@ -212,33 +222,36 @@ class TuyaDevice(Light):
 
     def update(self):
         """Get state of Tuya light."""
-        tries = 0
-        success = False
-        while (tries <=5 and success is False):
+        for i in range(5):
             try:
-              tries += 1
-              status = self._device.status()
-              self._state = status['dps'][self._lightid]
-              success = True
-            except ConnectionResetError:
-              sleep(.1) #before trying again sleep .1 sec
+                status = self._device.status()
+                print(status)
+                self._state = status['dps'][self._lightid]
+                #sometimes the status returns just one element in dps. this check prevents that from breaking status updates.
+                if (len(status['dps']) > 2):
+                  hue = int(status['dps']['5'][7:10], 16)
+                  saturation = round(int(status['dps']['5'][10:12], 16)/2.55)
+                  self._brightness = status['dps']['3']
+                  self._hs = (hue,saturation)
+                  r = int(status['dps']['5'][0:2], 16)
+                  g = int(status['dps']['5'][2:4], 16)
+                  b = int(status['dps']['5'][4:6], 16)
+                  self._rgb = (r,g,b)
+                  mode = status['dps']['2']
+                  self._mode = mode
+                  break
+            except (ConnectionError, ConnectionResetError) as e:
+                if i+1 == 5:
+                    raise ConnectionError("Failed to update status.")
+                sleep(.2)
               
-        # #TODO actually get the sype of light from pytuya
-        # hue = int(status['dps']['5'][7:10], 16)
-        # saturation = round(int(status['dps']['5'][10:12], 16)/2.55)
-        # brightness = round(int(status['dps']['5'][10:12], 16)/2.55)
-        # red = int(status['dps']['5'][0:2], 16)
-        # green = int(status['dps']['5'][2:4], 16)
-        # blue = int(status['dps']['5'][4:6], 16)
-        # mode = status['dps']['2']
-        # on = status['dps']['1']
-        # # convert colortemp to mireds hack (hue min/2-max/2 => 75-250 tuya is 25-255)
-        # colorTemp = round(int(status['dps']['5']*2)
-        
+        ##TODO actually get the Type of light from pytuya
 
     @property
     def supported_features(self):
         """Flag supported features."""
         supports = SUPPORT_BRIGHTNESS
         supports = supports | SUPPORT_COLOR
+        #Merkury color bulbs do not support colorTemp even though the Tuya App allows it.
+        #supports = supports | SUPPORT_COLOR_TEMP
         return supports
